@@ -114,6 +114,7 @@ function worker_perform(array $properties) {
   $data = $properties['item']->data;
   worker_log('Start job ' . number_format($data['nid']) . '.' . number_format($data['vid']) . '.' . number_format($data['delta']) . '.');
   worker_verbose($properties['verbose']);
+  worker_log_version();
 
   // Ensure that the job plugin can be loaded, prepare the environment, and
   // invoke the plugin to perform.
@@ -896,6 +897,31 @@ function worker_log_last($log = NULL) {
   if ($log) return ltrim(substr(array_pop($log), 13), '> ');
 
   return 'Failed to extract last log message.';
+}
+
+/**
+ * Log the worker module versions either from `git describe` or .info version.
+ */
+function worker_log_version() {
+  $plugins = worker_plugins_get_all('worker');
+  $versions = array();
+  foreach ($plugins as $plugin) {
+    $module = $plugin['module'];
+    if (!isset($versions[$module])) {
+      $path = drupal_get_path('module', $plugin['module']);
+      if (file_exists($path . '/.git')) {
+        $version = current(worker_execute_output('cd ' . escapeshellarg($path) . '; git describe --always --tags --long --dirty="*"'));
+      }
+      else {
+        $info = system_get_info('module', $module);
+        $version = $info['version'];
+      }
+
+      $versions[$module] = $module . ' ' . $version;
+    }
+  }
+  ksort($versions);
+  worker_log('Version ' . implode(', ', $versions));
 }
 
 /**
